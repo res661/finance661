@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Финансовый трекер</title>
+    <style>
+        /* Переменные для цветов */
+        :root {
+            --background-gradient-light: linear-gradient(135deg, #6a11cb, #2575fc);
+            --background-gradient-dark: linear-gradient(135deg, #4a0d8a, #1a4fb3);
+            --text-color-light: white;
+            --text-color-dark: #e0e0e0;
+            --card-bg-light: rgba(255, 255, 255, 0.1);
+            --card-bg-dark: rgba(0, 0, 0, 0.1);
+            --button-bg-light: #2575fc;
+            --button-bg-dark: #1a4fb3;
+            --button-text-light: white;
+            --button-text-dark: #e0e0e0;
+            --modal-bg-light: white;
+            --modal-bg-dark: #333;
+            --modal-text-light: black;
+            --modal-text-dark: white;
+            --transaction-bg-light: rgba(255, 255, 255, 0.1);
+            --transaction-bg-dark: rgba(0, 0, 0, 0.1);
+            --calendar-bg: #f0f0f0;
+            --calendar-text: #333;
+            --calendar-weekday-text: #444;
+            --positive-color: green;
+            --negative-color: red;
+            --no-transaction-bg: #f0f0f0;
+        }
+
+        body, .container, .chart-card, .buttons button, .modal-content, .transaction, .stats div {
+            transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+        }
+
+        body.light-theme {
+            background: var(--background-gradient-light);
+            color: var(--text-color-light);
+        }
+
+        body.light-theme .container {
+            background: var(--card-bg-light);
+        }
+
+        body.light-theme .buttons button {
+            background: var(--button-bg-light);
+            color: var(--button-text-light);
+        }
+
+        body.light-theme .modal-content {
+            background: var(--modal-bg-light);
+            color: var(--modal-text-light);
+        }
+
+        body.light-theme .transaction {
+            background: var(--transaction-bg-light);
+        }
+
+        body.light-theme .stats div {
+            background: var(--transaction-bg-light);
+        }
+
+        body.dark-theme {
+            background: var(--background-gradient-dark);
+            color: var(--text-color-dark);
+        }
+
+        body.dark-theme .container {
+            background: var(--card-bg-dark);
+        }
+
+        body.dark-theme .buttons button {
+            background: var(--button-bg-dark);
+            color: var(--button-text-dark);
+        }
+
+        body.dark-theme .modal-content {
+            background: var(--modal-bg-dark);
+            color: var(--modal-text-dark);
+        }
+
+        body.dark-theme .transaction {
+            background: var(--transaction-bg-dark);
+        }
+
+        body.dark-theme .stats div {
+            background: var(--transaction-bg-dark);
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background: var(--button-bg-light);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background 0.5s ease, transform 0.5s ease;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .theme-toggle svg {
+            width: 1.5rem;
+            height: 1.5rem;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+
+        .theme-toggle .sun {
+            position: absolute;
+            opacity: 1;
+            transform: rotate(0deg);
+        }
+
+        .theme-toggle .moon {
+            position: absolute;
+            opacity: 0;
+            transform: rotate(-90deg);
+        }
+
+        body.dark-theme .theme-toggle .sun {
+            opacity: 0;
+            transform: rotate(90deg);
+        }
+
+        body.dark-theme .theme-toggle .moon {
+            opacity: 1;
+            transform: rotate(0deg);
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: auto;
+            padding: 1rem;
+            animation: gradientAnimation 10s ease infinite;
+        }
+
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            text-align: center;
+            padding: 1rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .chart-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            margin: 0 auto;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 40vh;
+            margin: 0 auto;
+            position: relative;
+            opacity: 0;
+            animation: fadeIn 1s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .balance {
+            font-size: 1.5rem;
+            margin: 1rem 0;
+            font-weight: bold;
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .buttons button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 1.5rem;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .buttons button:hover {
+            transform: scale(1.1);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            animation: fadeInModal 0.3s ease;
+        }
+
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 300px;
+            text-align: center;
+            position: relative;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-20px); }
+            to { transform: translateY(0); }
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-content input, .modal-content select, .modal-content button {
+            width: 100%;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            border-radius: 0.25rem;
+            border: 1px solid #ccc;
+            font-size: 0.9rem;
+        }
+
+        .modal-content button {
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .transactions {
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .transaction {
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            margin: 0.25rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .transaction:hover {
+            transform: scale(1.02);
+        }
+
+        .transaction button {
+            border: none;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            margin-left: 0.25rem;
+            font-size: 0.8rem;
+        }
+
+        .transaction button.edit {
+            background: #2575fc;
+        }
+
+        .transaction button.edit:hover {
+            background: #6a11cb;
+        }
+
+        .transaction button:hover {
+            background: #cc0000;
+        }
+
+        .transaction.removing {
+            opacity: 0;
+            transform: translateX(-100%);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .stats div {
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            width: 45%;
+            min-width: 150px;
+            margin: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        .stats div span {
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        .interval-selector {
+            margin: 1rem 0;
+        }
+
+        .interval-selector button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 1.5rem;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.3s ease;
+            margin: 0.25rem;
+            font-size: 0.9rem;
+        }
+
+        .interval-selector button:hover {
+            transform: scale(1.1);
+        }
+
+        .sort-options {
+            margin: 1rem 0;
+        }
+
+        .sort-options select {
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .calendar-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            margin: 0 auto;
+            width: 90%;
+            max-width: 800px;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .calendar-header button {
+            background: var(--button-bg-light);
+            color: var(--button-text-light);
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .calendar-header button:hover {
+            background: var(--button-bg-dark);
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.25rem;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: var(--calendar-weekday-text);
+            font-size: 0.8rem;
+        }
+
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.25rem;
+        }
+
+        .calendar-days div {
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 2.5rem;
+            font-size: 0.8rem;
+        }
+
+        .calendar-days div.empty {
+            background: transparent;
+            cursor: default;
+        }
+
+        .calendar-days div.has-transaction {
+            background: var(--positive-color);
+            color: var(--text-color-light);
+        }
+
+        .calendar-days div.has-transaction.negative {
+            background: var(--negative-color);
+        }
+
+        .calendar-days div.has-transaction .date {
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: var(--text-color-light);
+        }
+
+        .calendar-days div.has-transaction .amount {
+            font-size: 0.6rem;
+            margin-top: 0.1rem;
+            color: var(--text-color-light);
+        }
+
+        .calendar-days div.no-transaction {
+            background: var(--no-transaction-bg);
+            color: var(--text-color-dark);
+        }
+
+        .fade-in {
+            opacity: 1;
+            display: block;
+        }
+
+        .fade-out {
+            opacity: 0;
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            .calendar-days div {
+                height: 2rem;
+                font-size: 0.7rem;
+            }
+
+            .calendar-days div.has-transaction .date {
+                font-size: 0.6rem;
+            }
+
+            .calendar-days div.has-transaction .amount {
+                font-size: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="light-theme">
+    <!-- Кнопка переключения темы -->
+    <button class="theme-toggle" onclick="toggleTheme()">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="5" fill="currentColor" />
+            <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" stroke-width="2" />
+            <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" stroke-width="2" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" stroke-width="2" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" stroke-width="2" />
+            <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" stroke-width="2" />
+            <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" stroke-width="2" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" stroke-width="2" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" stroke-width="2" />
+        </svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="currentColor" />
+        </svg>
+    </button>
+
+    <div class="container">
+        <div class="chart-card" id="chartCard">
+            <div class="chart-container">
+                <canvas id="myChart"></canvas>
+            </div>
+        </div>
+        <div class="calendar-card" id="calendarCard">
+            <div class="calendar-header">
+                <button onclick="changeMonth(-1)">&lt;</button>
+                <span id="currentMonthYear"></span>
+                <button onclick="changeMonth(1)">&gt;</button>
+            </div>
+            <div class="calendar-weekdays">
+                <div>Пн</div>
+                <div>Вт</div>
+                <div>Ср</div>
+                <div>Чт</div>
+                <div>Пт</div>
+                <div>Сб</div>
+                <div>Вс</div>
+            </div>
+            <div class="calendar-days" id="calendarDays"></div>
+        </div>
+        <div class="balance" id="balance">Баланс: $0.00</div>
+        <div class="buttons">
+            <button onclick="openModal()">Добавить транзакцию</button>
+            <button onclick="confirmClearData()">Очистить данные</button>
+            <button onclick="downloadData()">Скачать данные</button>
+            <button onclick="downloadTXT()">Скачать TXT</button>
+            <button onclick="toggleView()" id="toggleViewButton">Переключить на календарь</button>
+        </div>
+        <div class="interval-selector">
+            <button onclick="setInterval('week')">Неделя</button>
+            <button onclick="setInterval('month')">Месяц</button>
+            <button onclick="setInterval('all')">Всё время</button>
+        </div>
+        <div class="sort-options">
+            <select onchange="sortTransactions(this.value)">
+                <option value="dateDesc">По дате (новые → старые)</option>
+                <option value="dateAsc">По дате (старые → новые)</option>
+                <option value="amountAsc">По сумме (меньше → больше)</option>
+                <option value="amountDesc">По сумме (больше → меньше)</option>
+            </select>
+        </div>
+        <div class="stats">
+            <div><span>Доход:</span> <span id="totalIncome">$0.00</span></div>
+            <div><span>Расход:</span> <span id="totalExpense">$0.00</span></div>
+        </div>
+        <div class="transactions" id="transactions"></div>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">×</button>
+            <h2 id="modalTitle">Добавить транзакцию</h2>
+            <input type="number" id="amount" placeholder="Сумма">
+            <select id="type">
+                <option value="income">Доход</option>
+                <option value="expense">Расход</option>
+            </select>
+            <input type="text" id="description" placeholder="Описание">
+            <input type="date" id="date" value="${new Date().toISOString().split('T')[0]}">
+            <h3>Расширенные данные</h3>
+            <input type="text" id="theme" placeholder="Тема">
+            <input type="number" id="purchasePrice" placeholder="Цена покупки">
+            <input type="number" id="salePrice" placeholder="Цена продажи">
+            <select id="commission">
+                <option value="2">2%</option>
+                <option value="5">5%</option>
+                <option value="10">10%</option>
+                <option value="15">15%</option>
+            </select>
+            <button onclick="saveTransaction()">Сохранить</button>
+        </div>
+    </div>
+
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <h2>Вы уверены?</h2>
+            <p>Все данные будут удалены без возможности восстановления.</p>
+            <div style="display: flex; justify-content: space-around; margin-top: 20px;">
+                <button onclick="clearDataConfirmed()" style="background: #ff4d4d;">Да</button>
+                <button onclick="closeConfirmModal()" style="background: #ccc;">Нет</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let balance = parseFloat(localStorage.getItem('balance')) || 0;
+        let currentInterval = 'all';
+        let editingIndex = null;
+        let isCalendarVisible = localStorage.getItem('isCalendarVisible') === 'true' || false;
+
+        const ctx = document.getElementById('myChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(37, 117, 252, 0.8)');
+        gradient.addColorStop(1, 'rgba(37, 117, 252, 0.1)');
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Баланс',
+                    data: [],
+                    backgroundColor: gradient,
+                    borderColor: 'rgba(37, 117, 252, 1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        function updateChart() {
+            const filteredTransactions = filterTransactionsByInterval(transactions, currentInterval);
+            const labels = filteredTransactions.map((t, i) => `Транзакция ${i + 1}`);
+            const data = filteredTransactions.map(t => t.amount);
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = data;
+            chart.update();
+        }
+
+        function updateBalance() {
+            balance = transactions.reduce((acc, t) => acc + t.amount, 0);
+            document.getElementById('balance').innerText = `Баланс: $${balance.toFixed(2)}`;
+            localStorage.setItem('balance', balance);
+        }
+
+        function updateTransactions() {
+            const filteredTransactions = filterTransactionsByInterval(transactions, currentInterval);
+            const transactionsDiv = document.getElementById('transactions');
+            transactionsDiv.innerHTML = filteredTransactions.map((t, i) => `
+                <div class="transaction">
+                    <span>${t.type === 'income' ? '+' : '-'}$${Math.abs(t.amount).toFixed(2)} - ${t.description} (${formatDate(t.date)})</span>
+                    <button class="edit" onclick="editTransaction(${i})">✏️</button>
+                    <button onclick="deleteTransaction(${i})">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        function openModal() {
+            editingIndex = null;
+            document.getElementById('modalTitle').innerText = 'Добавить транзакцию';
+            document.getElementById('amount').value = '';
+            document.getElementById('type').value = 'income';
+            document.getElementById('description').value = '';
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('theme').value = '';
+            document.getElementById('purchasePrice').value = '';
+            document.getElementById('salePrice').value = '';
+            document.getElementById('commission').value = '2';
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        function editTransaction(index) {
+            editingIndex = index;
+            const transaction = transactions[index];
+            document.getElementById('modalTitle').innerText = 'Изменить транзакцию';
+            document.getElementById('amount').value = Math.abs(transaction.amount);
+            document.getElementById('type').value = transaction.type;
+            document.getElementById('description').value = transaction.description;
+            document.getElementById('date').value = transaction.date;
+            document.getElementById('theme').value = transaction.theme || '';
+            document.getElementById('purchasePrice').value = transaction.purchasePrice || '';
+            document.getElementById('salePrice').value = transaction.salePrice || '';
+            document.getElementById('commission').value = transaction.commission || '2';
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function saveTransaction() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const type = document.getElementById('type').value;
+            const description = document.getElementById('description').value;
+            const date = document.getElementById('date').value;
+            const theme = document.getElementById('theme').value;
+            const purchasePrice = parseFloat(document.getElementById('purchasePrice').value);
+            const salePrice = parseFloat(document.getElementById('salePrice').value);
+            const commission = parseFloat(document.getElementById('commission').value);
+
+            let finalAmount = amount;
+            let finalDescription = description;
+
+            if (theme && purchasePrice && salePrice) {
+                const profit = (salePrice - purchasePrice) - (salePrice * commission / 100);
+                finalAmount = profit;
+                finalDescription = `${profit >= 0 ? '$' + profit.toFixed(2) + ' прибыль' : '-$' + Math.abs(profit).toFixed(2) + ' убыток'} (тема: ${theme})`;
+            }
+
+            if (finalAmount && finalDescription) {
+                const transaction = {
+                    amount: type === 'income' ? finalAmount : -finalAmount,
+                    type,
+                    description: finalDescription,
+                    date,
+                    theme,
+                    purchasePrice,
+                    salePrice,
+                    commission
+                };
+
+                if (editingIndex !== null) {
+                    transactions[editingIndex] = transaction;
+                } else {
+                    transactions.push(transaction);
+                }
+
+                localStorage.setItem('transactions', JSON.stringify(transactions));
+                updateChart();
+                updateBalance();
+                updateTransactions();
+                updateStats();
+                updateCalendar();
+                closeModal();
+            }
+        }
+
+        function deleteTransaction(index) {
+            const transactionElement = document.querySelectorAll('.transaction')[index];
+            transactionElement.classList.add('removing');
+            setTimeout(() => {
+                transactions.splice(index, 1);
+                localStorage.setItem('transactions', JSON.stringify(transactions));
+                updateChart();
+                updateBalance();
+                updateTransactions();
+                updateStats();
+                updateCalendar();
+            }, 300);
+        }
+
+        function confirmClearData() {
+            document.getElementById('confirmModal').style.display = 'flex';
+        }
+
+        function clearDataConfirmed() {
+            transactions = [];
+            balance = 0;
+            localStorage.removeItem('transactions');
+            localStorage.removeItem('balance');
+            updateChart();
+            updateBalance();
+            updateTransactions();
+            updateStats();
+            updateCalendar();
+            closeConfirmModal();
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').style.display = 'none';
+        }
+
+        function downloadData() {
+            const dataStr = JSON.stringify(transactions, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'transactions.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadTXT() {
+            const txtContent = transactions.map(t => 
+                `Тип: ${t.type}\nСумма: ${t.amount}\nОписание: ${t.description}\nДата: ${t.date}\nТема: ${t.theme || ''}\nЦена покупки: ${t.purchasePrice || ''}\nЦена продажи: ${t.salePrice || ''}\nКомиссия: ${t.commission || ''}\n\n`
+            ).join('');
+            const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'transactions.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function sortTransactions(sortType) {
+            switch (sortType) {
+                case 'dateDesc':
+                    transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    break;
+                case 'dateAsc':
+                    transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    break;
+                case 'amountAsc':
+                    transactions.sort((a, b) => a.amount - b.amount);
+                    break;
+                case 'amountDesc':
+                    transactions.sort((a, b) => b.amount - a.amount);
+                    break;
+            }
+            updateTransactions();
+        }
+
+        function updateStats() {
+            const filteredTransactions = filterTransactionsByInterval(transactions, currentInterval);
+            const totalIncome = filteredTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+            const totalExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + Math.abs(t.amount), 0);
+            document.getElementById('totalIncome').innerText = `$${totalIncome.toFixed(2)}`;
+            document.getElementById('totalExpense').innerText = `$${totalExpense.toFixed(2)}`;
+        }
+
+        function setInterval(interval) {
+            currentInterval = interval;
+            updateChart();
+            updateTransactions();
+            updateStats();
+        }
+
+        function filterTransactionsByInterval(transactions, interval) {
+            const now = new Date();
+            switch (interval) {
+                case 'week':
+                    return transactions.filter(t => {
+                        const transactionDate = new Date(t.date);
+                        return now - transactionDate <= 7 * 24 * 60 * 60 * 1000;
+                    });
+                case 'month':
+                    return transactions.filter(t => {
+                        const transactionDate = new Date(t.date);
+                        return now - transactionDate <= 30 * 24 * 60 * 60 * 1000;
+                    });
+                case 'all':
+                default:
+                    return transactions;
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+            return `${date.toLocaleDateString()} (${days[date.getDay()]})`;
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            if (body.classList.contains('dark-theme')) {
+                body.classList.remove('dark-theme');
+                body.classList.add('light-theme');
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.classList.remove('light-theme');
+                body.classList.add('dark-theme');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        function applySavedTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.body.classList.add(savedTheme + '-theme');
+        }
+
+        function toggleView() {
+            const chartCard = document.getElementById('chartCard');
+            const calendarCard = document.getElementById('calendarCard');
+            const toggleButton = document.getElementById('toggleViewButton');
+
+            if (isCalendarVisible) {
+                chartCard.classList.remove('fade-out');
+                chartCard.classList.add('fade-in');
+                calendarCard.classList.remove('fade-in');
+                calendarCard.classList.add('fade-out');
+                toggleButton.innerText = 'Переключить на календарь';
+            } else {
+                chartCard.classList.remove('fade-in');
+                chartCard.classList.add('fade-out');
+                calendarCard.classList.remove('fade-out');
+                calendarCard.classList.add('fade-in');
+                toggleButton.innerText = 'Переключить на график';
+            }
+
+            isCalendarVisible = !isCalendarVisible;
+            localStorage.setItem('isCalendarVisible', isCalendarVisible);
+        }
+
+        let currentDate = new Date();
+        let currentMonth = currentDate.getMonth();
+        let currentYear = currentDate.getFullYear();
+
+        function updateCalendar() {
+            const calendarDays = document.getElementById('calendarDays');
+            const currentMonthYear = document.getElementById('currentMonthYear');
+            calendarDays.innerHTML = '';
+
+            currentMonthYear.textContent = `${new Date(currentYear, currentMonth).toLocaleString('ru', { month: 'long' })} ${currentYear}`;
+
+            const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const startingDay = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;
+
+            for (let i = 0; i < startingDay; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.classList.add('empty');
+                calendarDays.appendChild(emptyDay);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayElement = document.createElement('div');
+                dayElement.textContent = day;
+
+                const date = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const transaction = transactions.find(t => t.date === date);
+
+                if (transaction) {
+                    dayElement.classList.add('has-transaction');
+                    if (transaction.amount < 0) {
+                        dayElement.classList.add('negative');
+                    }
+                    dayElement.innerHTML = `
+                        <div class="date">${day}</div>
+                        <div class="amount">${transaction.amount >= 0 ? '+' : '-'}$${Math.abs(transaction.amount).toFixed(2)}</div>
+                    `;
+                } else {
+                    dayElement.classList.add('no-transaction');
+                }
+
+                calendarDays.appendChild(dayElement);
+            }
+        }
+
+        function changeMonth(step) {
+            currentMonth += step;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            } else if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            updateCalendar();
+        }
+
+        applySavedTheme();
+        updateChart();
+        updateBalance();
+        updateTransactions();
+        updateStats();
+        updateCalendar();
+        if (isCalendarVisible) {
+            toggleView();
+        }
+    </script>
+</body>
+</html>
