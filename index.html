@@ -544,8 +544,8 @@
         <div class="buttons">
             <button onclick="openModal()">Добавить транзакцию</button>
             <button onclick="confirmClearData()">Очистить данные</button>
-            <button onclick="downloadData()">Скачать данные</button>
             <button onclick="downloadTXT()">Скачать TXT</button>
+            <button onclick="importData()">Импорт данных</button>
             <button onclick="toggleView()" id="toggleViewButton">Переключить на календарь</button>
         </div>
         <div class="interval-selector">
@@ -784,17 +784,6 @@
             document.getElementById('confirmModal').style.display = 'none';
         }
 
-        function downloadData() {
-            const dataStr = JSON.stringify(transactions, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'transactions.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
         function downloadTXT() {
             const txtContent = transactions.map(t => 
                 `Тип: ${t.type}\nСумма: ${t.amount}\nОписание: ${t.description}\nДата: ${t.date}\nТема: ${t.theme || ''}\nЦена покупки: ${t.purchasePrice || ''}\nЦена продажи: ${t.salePrice || ''}\nКомиссия: ${t.commission || ''}\n\n`
@@ -806,6 +795,57 @@
             a.download = 'transactions.txt';
             a.click();
             URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.txt';
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    const lines = content.split('\n');
+                    const newTransactions = [];
+                    let transaction = {};
+
+                    lines.forEach(line => {
+                        if (line.startsWith('Тип:')) {
+                            transaction.type = line.split(': ')[1].trim();
+                        } else if (line.startsWith('Сумма:')) {
+                            transaction.amount = parseFloat(line.split(': ')[1].trim());
+                        } else if (line.startsWith('Описание:')) {
+                            transaction.description = line.split(': ')[1].trim();
+                        } else if (line.startsWith('Дата:')) {
+                            transaction.date = line.split(': ')[1].trim();
+                        } else if (line.startsWith('Тема:')) {
+                            transaction.theme = line.split(': ')[1].trim();
+                        } else if (line.startsWith('Цена покупки:')) {
+                            transaction.purchasePrice = parseFloat(line.split(': ')[1].trim());
+                        } else if (line.startsWith('Цена продажи:')) {
+                            transaction.salePrice = parseFloat(line.split(': ')[1].trim());
+                        } else if (line.startsWith('Комиссия:')) {
+                            transaction.commission = parseFloat(line.split(': ')[1].trim());
+                        } else if (line.trim() === '') {
+                            if (Object.keys(transaction).length > 0) {
+                                newTransactions.push(transaction);
+                                transaction = {};
+                            }
+                        }
+                    });
+
+                    transactions = [...transactions, ...newTransactions];
+                    localStorage.setItem('transactions', JSON.stringify(transactions));
+                    updateChart();
+                    updateBalance();
+                    updateTransactions();
+                    updateStats();
+                    updateCalendar();
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
 
         function sortTransactions(sortType) {
